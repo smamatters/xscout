@@ -1113,7 +1113,7 @@ map.on('zoomend', () => {
 
 // ============ SERVICE WORKER REGISTRATION ============
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(e => console.error('SW registration failed:', e));
+  navigator.serviceWorker.register('sw.js', {scope: '/xscout/'}).catch(e => console.error('SW registration failed:', e));
 }
 
 // ============ LOAD SAVED DATA ============

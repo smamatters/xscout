@@ -2,8 +2,8 @@
   "name": "Xscout",
   "short_name": "Xscout",
   "description": "Hunt smarter. GPS mapping, property boundaries, hunting units, waypoints, and offline maps.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/xscout/",
+  "scope": "/xscout/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0a1a0f",
@@ -33,19 +33,19 @@
       "name": "New Waypoint",
       "short_name": "Waypoint",
       "description": "Drop a new waypoint at current location",
-      "url": "/#new-waypoint"
+      "url": "/xscout/#new-waypoint"
     },
     {
       "name": "Saved Waypoints",
       "short_name": "Saved",
       "description": "View saved waypoints and tracks",
-      "url": "/#saved"
+      "url": "/xscout/#saved"
     },
     {
       "name": "Offline Maps",
       "short_name": "Offline",
       "description": "Manage downloaded offline map areas",
-      "url": "/#offline"
+      "url": "/xscout/#offline"
     }
   ]
 }

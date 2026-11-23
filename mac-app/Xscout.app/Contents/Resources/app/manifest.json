@@ -1,0 +1,51 @@
+{
+  "name": "Xscout",
+  "short_name": "Xscout",
+  "description": "Hunt smarter. GPS mapping, property boundaries, hunting units, waypoints, and offline maps.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a1a0f",
+  "theme_color": "#00cc55",
+  "categories": ["outdoors", "navigation", "utilities"],
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "shortcuts": [
+    {
+      "name": "New Waypoint",
+      "short_name": "Waypoint",
+      "description": "Drop a new waypoint at current location",
+      "url": "/#new-waypoint"
+    },
+    {
+      "name": "Saved Waypoints",
+      "short_name": "Saved",
+      "description": "View saved waypoints and tracks",
+      "url": "/#saved"
+    },
+    {
+      "name": "Offline Maps",
+      "short_name": "Offline",
+      "description": "Manage downloaded offline map areas",
+      "url": "/#offline"
+    }
+  ]
+}

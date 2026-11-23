@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Xscout">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Xscout</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+<style>
+:root {
+  --bg: #0a1a0f;
+  --bg2: #112217;
+  --surface: #162b1c;
+  --surface2: #1d3424;
+  --border: #1e4a2a;
+  --text: #e0f0e0;
+  --text2: #9ab89e;
+  --accent: #00cc55;
+  --accent2: #00ff66;
+  --danger: #ff3344;
+  --warn: #ffaa00;
+  --radius: 8px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  width: 100%; height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Map container */
+#map { width: 100vw; height: 100vh; }
+
+/* Leaflet overrides */
+.leaflet-container { background: #0a1a0f !important; }
+.leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.leaflet-control-attribution { background: rgba(10,26,15,0.85) !important; color: var(--text2) !important; font-size: 9px !important; }
+.leaflet-control-attribution a { color: var(--accent) !important; }
+
+/* Custom control buttons */
+.ctrl-btn {
+  width: 44px; height: 44px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.ctrl-btn:hover, .ctrl-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.ctrl-btn:active { transform: scale(0.95); }
+
+/* Control panel (side drawer) */
+#panel {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: min(380px, 85vw);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#panel.open { transform: translateX(0); }
+#panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+#panel-header h2 { font-size: 16px; font-weight: 700; color: var(--accent); }
+#panel-header .close-btn {
+  background: none; border: none; color: var(--text2); font-size: 22px; cursor: pointer; padding: 4px 8px;
+}
+#panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+#panel-body::-webkit-scrollbar { width: 4px; }
+#panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.panel-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.panel-section h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+/* Bottom toolbar */
+#toolbar {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 8px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.tool-btn {
+  width: 44px; height: 44px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tool-btn:hover { background: var(--surface2); color: var(--text); }
+.tool-btn.active { background: var(--accent); color: var(--bg); }
+
+/* Waypoint form */
+.wp-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.wp-input:focus { outline: none; border-color: var(--accent); }
+.wp-btn {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.wp-btn:hover { opacity: 0.85; }
+.wp-btn.secondary { background: var(--surface2); color: var(--text); }
+
+/* Waypoint list item */
+.wp-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px;
+  background: var(--bg2);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.wp-item:hover { background: var(--surface2); }
+.wp-item .wp-icon {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.wp-item .wp-info { flex: 1; min-width: 0; }
+.wp-item .wp-info .wp-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wp-item .wp-info .wp-detail { font-size: 11px; color: var(--text2); }
+.wp-item .wp-delete {
+  background: none; border: none; color: var(--danger); font-size: 16px; cursor: pointer; padding: 4px; opacity: 0.6;
+}
+.wp-item .wp-delete:hover { opacity: 1; }
+
+/* GPS indicator */
+#gps-status {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(10,26,15,0.85);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--text2);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+#gps-status.active { color: var(--accent); border-color: var(--accent); }
+
+/* Notification toast */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  padding: 8px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text);
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+}
+.toast.show { opacity: 1; }
+
+/* Layer switcher mini */
+.layer-preview {
+  width: 100%; height: 50px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  object-fit: cover;
+}
+.layer-preview:hover, .layer-preview.active { border-color: var(--accent); }
+
+/* Offline status */
+#offline-badge {
+  display: none;
+  position: fixed; bottom: 80px; right: 12px;
+  padding: 3px 8px;
+  background: var(--warn);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #000;
+  z-index: 999;
+}
+#offline-badge.show { display: block; }
+
+/* Color picker for categories */
+.color-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-block;
+  border: 2px solid transparent;
+  cursor: pointer;
+  margin: 2px;
+}
+.color-dot.active { border-color: var(--text); }
+
+/* Measurement display */
+#measure-display {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 6px 16px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  z-index: 1000;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+#measure-display.show { display: block; }
+
+/* Layer toggle checkboxes */
+.layer-toggle {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; cursor: pointer;
+  font-size: 13px;
+}
+.layer-toggle input { accent-color: var(--accent); }
+
+@media (max-width: 500px) {
+  #toolbar { padding: 4px 6px; gap: 3px; }
+  .tool-btn { width: 38px; height: 38px; font-size: 17px; }
+  #panel { width: 100vw; }
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- GPS status -->
+<div id="gps-status">📍 GPS off</div>
+
+<!-- Offline badge -->
+<div id="offline-badge">OFFLINE</div>
+
+<!-- Measure display -->
+<div id="measure-display"></div>
+
+<!-- Side panel -->
+<div id="panel">
+  <div id="panel-header">
+    <h2>Xscout</h2>
+    <button class="close-btn" onclick="closePanel()">✕</button>
+  </div>
+  <div id="panel-body"></div>
+</div>
+
+<!-- Bottom toolbar -->
+<div id="toolbar">
+  <button class="tool-btn" onclick="toggleMenu()" title="Menu">☰</button>
+  <button class="tool-btn" onclick="toggleGPS()" title="GPS" id="gps-btn">📍</button>
+  <button class="tool-btn" onclick="toggleLayers()" title="Layers">🗺️</button>
+  <button class="tool-btn" onclick="addWaypoint()" title="Drop Waypoint">📍</button>
+  <button class="tool-btn" onclick="showWaypoints()" title="Waypoints">🏷️</button>
+  <button class="tool-btn" onclick="toggleMeasure()" title="Measure">📏</button>
+  <button class="tool-btn" onclick="locateMe()" title="Center on me">🎯</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script>
+// ============ STATE ============
+const state = {
+  gps: false,
+  gpsWatchId: null,
+  currentPos: null,
+  waypoints: JSON.parse(localStorage.getItem('xscout_waypoints') || '[]'),
+  tracks: JSON.parse(localStorage.getItem('xscout_tracks') || '[]'),
+  activeLayer: 'streets',
+  layers: {},
+  panelView: null,
+  measuring: false,
+  drawnItems: new L.FeatureGroup(),
+  waypointMarkers: L.featureGroup(),
+  trackLines: L.featureGroup(),
+  offlineAreas: [],
+  measureLine: null,
+  measurePoints: [],
+};
+
+// ============ MAP ============
+const map = L.map('map', {
+  center: [39.8283, -98.5795], // center of US
+  zoom: 4,
+  zoomControl: true,
+  attributionControl: true,
+});
+
+// Tile layers
+const tileLayers = {
+  streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }),
+  satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 19,
+  }),
+  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenTopoMap',
+    maxZoom: 17,
+  }),
+  hybrid: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 19,
+  }),
+};
+
+// Default layer
+state.activeLayer = localStorage.getItem('xscout_layer') || 'streets';
+tileLayers[state.activeLayer].addTo(map);
+
+// Layer groups
+state.drawnItems.addTo(map);
+state.waypointMarkers.addTo(map);
+state.trackLines.addTo(map);
+
+// Draw controls
+const drawControl = new L.Control.Draw({
+  position: 'topright',
+  draw: {
+    polyline: { shapeOptions: { color: '#00cc55', weight: 3 } },
+    polygon: { shapeOptions: { color: '#00cc55', weight: 2, fillOpacity: 0.15 } },
+    circle: { shapeOptions: { color: '#00cc55', weight: 2, fillOpacity: 0.1 } },
+    rectangle: { shapeOptions: { color: '#00cc55', weight: 2, fillOpacity: 0.1 } },
+    marker: true,
+    circlemarker: false,
+  },
+  edit: { featureGroup: state.drawnItems },
+});
+map.addControl(drawControl);
+
+map.on(L.Draw.Event.CREATED, e => {
+  state.drawnItems.addLayer(e.layer);
+  toast('Shape saved');
+});
+
+// ============ GPS ============
+const gpsStatus = document.getElementById('gps-status');
+const gpsBtn = document.getElementById('gps-btn');
+let gpsMarker = null;
+let gpsCircle = null;
+let trackHistory = [];
+
+function toggleGPS() {
+  state.gps = !state.gps;
+  if (state.gps) {
+    if (!navigator.geolocation) { toast('GPS not available'); state.gps = false; return; }
+    gpsStatus.textContent = '📍 Searching...';
+    gpsStatus.className = 'active';
+    gpsBtn.classList.add('active');
+    state.gpsWatchId = navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude, altitude, accuracy, heading, speed } = pos.coords;
+        state.currentPos = [latitude, (altitude || 0)];
+        updateGPSMarker(latitude, pos.coords.longitude, accuracy, heading);
+        gpsStatus.textContent = `📍 ${latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}${speed ? ' ' + (speed*3.6).toFixed(1)+'km/h' : ''}`;
+        
+        // Track recording
+        if (state.recordingTrack) {
+          trackHistory.push([latitude, pos.coords.longitude]);
+          updateTrackLine();
+        }
+      },
+      err => {
+        gpsStatus.textContent = '📍 GPS error';
+        gpsStatus.className = '';
+        console.error('GPS error:', err);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+    );
+  } else {
+    if (state.gpsWatchId) navigator.geolocation.clearWatch(state.gpsWatchId);
+    state.gpsWatchId = null;
+    if (gpsMarker) { map.removeLayer(gpsMarker); gpsMarker = null; }
+    if (gpsCircle) { map.removeLayer(gpsCircle); gpsCircle = null; }
+    gpsStatus.textContent = '📍 GPS off';
+    gpsStatus.className = '';
+    gpsBtn.classList.remove('active');
+  }
+}
+
+function updateGPSMarker(lat, lng, accuracy, heading) {
+  if (gpsMarker) map.removeLayer(gpsMarker);
+  if (gpsCircle) map.removeLayer(gpsCircle);
+  
+  const icon = L.divIcon({
+    html: `<div style="width:18px;height:18px;background:#00cc55;border:3px solid #00ff66;border-radius:50%;box-shadow:0 0 12px rgba(0,204,85,0.6);"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    className: ''
+  });
+  gpsMarker = L.marker([lat, lng], { icon }).addTo(map);
+  gpsCircle = L.circle([lat, lng], { radius: accuracy || 10, color: '#00cc55', fillColor: '#00cc55', fillOpacity: 0.1, weight: 1 }).addTo(map);
+}
+
+function locateMe() {
+  if (state.currentPos) {
+    map.setView(state.currentPos, 15, { animate: true });
+    toast('Centered on your location');
+  } else {
+    toast('No GPS fix yet');
+    if (!state.gps) toggleGPS();
+  }
+}
+
+// ============ WAYPOINTS ============
+const CATEGORIES = [
+  { id: 'stand', label: 'Tree Stand', icon: '🦌', color: '#00cc55' },
+  { id: 'blind', label: 'Blind', icon: '🏠', color: '#8B5E3C' },
+  { id: 'water', label: 'Water Source', icon: '💧', color: '#3399ff' },
+  { id: 'food', label: 'Food Plot', icon: '🌾', color: '#ffaa00' },
+  { id: 'bedding', label: 'Bedding Area', icon: '🛏️', color: '#cc6600' },
+  { id: 'trail', label: 'Trail Cam', icon: '📷', color: '#ff66aa' },
+  { id: 'road', label: 'Access Road', icon: '🛻', color: '#999999' },
+  { id: 'boundary', label: 'Property Corner', icon: '📍', color: '#ff4444' },
+  { id: 'camp', label: 'Camp', icon: '⛺', color: '#ff8800' },
+  { id: 'other', label: 'Other', icon: '📌', color: '#aa66ff' },
+];
+
+function addWaypoint() {
+  if (state.currentPos) {
+    openPanel('waypoint', { lat: state.currentPos[0], lng: state.currentPos[1] });
+  } else {
+    // Drop at map center
+    const center = map.getCenter();
+    openPanel('waypoint', { lat: center.lat, lng: center.lng });
+  }
+}
+
+function saveWaypoint(data) {
+  const wp = {
+    id: Date.now().toString(36),
+    name: data.name || 'Waypoint',
+    lat: data.lat,
+    lng: data.lng,
+    category: data.category || 'other',
+    notes: data.notes || '',
+    altitude: data.altitude || null,
+    createdAt: new Date().toISOString(),
+  };
+  state.waypoints.unshift(wp);
+  saveWaypoints();
+  addWaypointMarker(wp);
+  closePanel();
+  toast(`Saved: ${wp.name}`);
+}
+
+function addWaypointMarker(wp) {
+  const cat = CATEGORIES.find(c => c.id === wp.category) || CATEGORIES[CATEGORIES.length-1];
+  const icon = L.divIcon({
+    html: `<div style="background:${cat.color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid rgba(255,255,255,0.5);box-shadow:0 2px 8px rgba(0,0,0,0.4);">${cat.icon}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    className: ''
+  });
+  const marker = L.marker([wp.lat, wp.lng], { icon })
+    .bindPopup(`<b>${wp.name}</b><br>${cat.label}${wp.notes ? '<br>'+wp.notes : ''}<br><small>${wp.lat.toFixed(6)}, ${wp.lng.toFixed(6)}</small>`)
+    .addTo(state.waypointMarkers);
+  marker._xscoutId = wp.id;
+}
+
+function saveWaypoints() {
+  localStorage.setItem('xscout_waypoints', JSON.stringify(state.waypoints));
+}
+
+function deleteWaypoint(id) {
+  state.waypoints = state.waypoints.filter(w => w.id !== id);
+  saveWaypoints();
+  state.waypointMarkers.eachLayer(l => {
+    if (l._xscoutId === id) state.waypointMarkers.removeLayer(l);
+  });
+  showWaypoints();
+  toast('Waypoint deleted');
+}
+
+function loadWaypoints() {
+  state.waypoints.forEach(wp => addWaypointMarker(wp));
+}
+
+// ============ TRACK RECORDING ============
+let recordingTrack = false;
+
+function toggleTrackRecording() {
+  recordingTrack = !recordingTrack;
+  if (recordingTrack) {
+    trackHistory = [];
+    toast('Track recording started');
+  } else {
+    if (trackHistory.length > 1) {
+      const track = {
+        id: Date.now().toString(36),
+        points: [...trackHistory],
+        name: `Track ${new Date().toLocaleDateString()}`,
+        createdAt: new Date().toISOString(),
+      };
+      state.tracks.push(track);
+      localStorage.setItem('xscout_tracks', JSON.stringify(state.tracks));
+      drawSavedTrack(track);
+      toast(`Track saved (${trackHistory.length} pts)`);
+    }
+    trackHistory = [];
+  }
+}
+
+function updateTrackLine() {
+  state.trackLines.eachLayer(l => {
+    if (l._xscoutActiveTrack) state.trackLines.removeLayer(l);
+  });
+  if (trackHistory.length > 1) {
+    const line = L.polyline(trackHistory, { color: '#00cc55', weight: 3, opacity: 0.7 });
+    line._xscoutActiveTrack = true;
+    state.trackLines.addLayer(line);
+  }
+}
+
+function drawSavedTrack(track) {
+  if (track.points.length > 1) {
+    const line = L.polyline(track.points, { color: '#00cc55', weight: 2, opacity: 0.5 });
+    line.bindPopup(`<b>${track.name}</b><br>${track.points.length} points`);
+    state.trackLines.addLayer(line);
+  }
+}
+
+function loadTracks() {
+  state.tracks.forEach(t => drawSavedTrack(t));
+}
+
+// ============ PANEL ============
+function openPanel(view, data) {
+  state.panelView = view;
+  const panel = document.getElementById('panel');
+  const body = document.getElementById('panel-body');
+  
+  switch(view) {
+    case 'menu':
+      body.innerHTML = renderMenu();
+      break;
+    case 'waypoint':
+      body.innerHTML = renderWaypointForm(data);
+      break;
+    case 'waypoints':
+      body.innerHTML = renderWaypointsList();
+      break;
+    case 'layers':
+      body.innerHTML = renderLayersPanel();
+      break;
+    case 'saved':
+      body.innerHTML = renderSavedPanel();
+      break;
+    case 'offline':
+      body.innerHTML = renderOfflinePanel();
+      break;
+    default:
+      body.innerHTML = '<p>Unknown view</p>';
+  }
+  
+  panel.classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  state.panelView = null;
+}
+
+function toggleMenu() {
+  if (state.panelView === 'menu') closePanel();
+  else openPanel('menu');
+}
+
+function toggleLayers() {
+  if (state.panelView === 'layers') closePanel();
+  else openPanel('layers');
+}
+
+function showWaypoints() {
+  if (state.panelView === 'waypoints') closePanel();
+  else openPanel('waypoints');
+}
+
+// ============ PANEL RENDERERS ============
+function renderMenu() {
+  return `
+    <div class="panel-section">
+      <h3>Xscout v1.0</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px;">Hunt smarter. GPS mapping, property boundaries, waypoints, and offline maps.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <button class="wp-btn" onclick="openPanel('saved')">📁 Saved</button>
+        <button class="wp-btn secondary" onclick="toggleTrackRecording()">${recordingTrack ? '⏹️ Stop Track' : '🔄 Record Track'}</button>
+        <button class="wp-btn secondary" onclick="openPanel('offline')">📶 Offline Maps</button>
+        <button class="wp-btn secondary" onclick="if(confirm('Delete all waypoints?')){state.waypoints=[];state.waypointMarkers.clearLayers();saveWaypoints();toast('Cleared');closePanel();}">🗑️ Clear All</button>
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3>Map Info</h3>
+      <div style="font-size:12px;color:var(--text2);">
+        <div>Center: <span id="info-center">${map.getCenter().lat.toFixed(4)}, ${map.getCenter().lng.toFixed(4)}</span></div>
+        <div>Zoom: <span id="info-zoom">${map.getZoom()}</span></div>
+        <div>Waypoints: ${state.waypoints.length}</div>
+        ${state.currentPos ? `<div>Your GPS: ${state.currentPos[0].toFixed(6)}, ${state.currentPos[1].toFixed(6)}</div>` : ''}
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3>Quick Actions</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        ${CATEGORIES.map(c => `<button class="wp-btn secondary" style="font-size:12px;padding:6px;background:${c.color}22;border-color:${c.color};" onclick="quickWaypoint('${c.id}')">${c.icon} ${c.label}</button>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderWaypointForm(data) {
+  return `
+    <div class="panel-section">
+      <h3>New Waypoint</h3>
+      <input class="wp-input" id="wp-name" placeholder="Waypoint name" value="Waypoint ${state.waypoints.length + 1}">
+      <div style="margin-bottom:8px;">
+        <label style="font-size:11px;color:var(--text2);">Category:</label>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+          ${CATEGORIES.map(c => `<div class="color-dot" style="background:${c.color};${c.id==='other'?'border-color:'+c.color:''}" onclick="setCategory('${c.id}')" data-cat="${c.id}" title="${c.label}">${c.icon}</div>`).join('')}
+        </div>
+        <input type="hidden" id="wp-category" value="other">
+      </div>
+      <textarea class="wp-input" id="wp-notes" placeholder="Notes..." rows="3"></textarea>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">
+        ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="wp-btn" onclick="saveWaypoint({name:document.getElementById('wp-name').value,lat:${data.lat},lng:${data.lng},category:document.getElementById('wp-category').value,notes:document.getElementById('wp-notes').value})">Save</button>
+        <button class="wp-btn secondary" onclick="closePanel()">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function setCategory(id) {
+  document.getElementById('wp-category').value = id;
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+  const el = document.querySelector(`[data-cat="${id}"]`);
+  if (el) el.classList.add('active');
+}
+
+function renderWaypointsList() {
+  if (state.waypoints.length === 0) {
+    return `<div class="panel-section"><h3>Waypoints</h3><p style="font-size:13px;color:var(--text2);">No waypoints yet. Tap 📍 to drop one.</p></div>`;
+  }
+  let html = `<div class="panel-section"><h3>Waypoints (${state.waypoints.length})</h3>`;
+  state.waypoints.forEach(wp => {
+    const cat = CATEGORIES.find(c => c.id === wp.category) || CATEGORIES[CATEGORIES.length-1];
+    html += `
+      <div class="wp-item" onclick="flyToWaypoint('${wp.id}')">
+        <div class="wp-icon" style="background:${cat.color}">${cat.icon}</div>
+        <div class="wp-info">
+          <div class="wp-name">${wp.name}</div>
+          <div class="wp-detail">${cat.label} · ${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}</div>
+        </div>
+        <button class="wp-delete" onclick="event.stopPropagation();deleteWaypoint('${wp.id}')">✕</button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderLayersPanel() {
+  const layers = ['streets', 'satellite', 'topo', 'hybrid'];
+  const names = ['Streets', 'Satellite', 'Topographic', 'Hybrid'];
+  const previews = ['🗺️', '🛰️', '🏔️', '🌍'];
+  
+  let html = `<div class="panel-section"><h3>Base Map</h3>`;
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">`;
+  layers.forEach((l, i) => {
+    html += `
+      <div style="padding:16px 10px;background:var(--bg2);border-radius:8px;text-align:center;cursor:pointer;border:2px solid ${state.activeLayer===l?'var(--accent)':'transparent'};" onclick="switchLayer('${l}')">
+        <div style="font-size:28px;margin-bottom:4px;">${previews[i]}</div>
+        <div style="font-size:11px;font-weight:${state.activeLayer===l?'700':'400'};color:${state.activeLayer===l?'var(--accent)':'var(--text2)'};">${names[i]}</div>
+      </div>
+    `;
+  });
+  html += `</div></div>`;
+  
+  // Toggle overlays
+  html += `<div class="panel-section"><h3>Overlays</h3>`;
+  
+  // Public/Private land toggle
+  html += `<label class="layer-toggle"><input type="checkbox" id="toggle-public" onchange="togglePublicPrivate(this.checked)"> 🏞️ Public / Private Land</label>`;
+  // Hunting units toggle
+  html += `<label class="layer-toggle"><input type="checkbox" id="toggle-units" onchange="toggleHuntingUnits(this.checked)"> 🦌 Hunting Units</label>`;
+  // Weather overlay
+  html += `<label class="layer-toggle"><input type="checkbox" id="toggle-weather" onchange="toggleWeather(this.checked)"> 🌤️ Weather Radar</label>`;
+  // Property lines
+  html += `<label class="layer-toggle"><input type="checkbox" id="toggle-parcels" onchange="toggleParcels(this.checked)"> 📋 Parcel Boundaries</label>`;
+  
+  html += `</div>`;
+  
+  return html;
+}
+
+function renderSavedPanel() {
+  let html = `<div class="panel-section"><h3>Saved Items</h3>`;
+  html += `<h4 style="font-size:12px;color:var(--accent);margin-bottom:6px;">Waypoints (${state.waypoints.length})</h4>`;
+  if (state.waypoints.length > 0) {
+    html += `<button class="wp-btn secondary" style="width:100%;margin-bottom:8px;" onclick="showWaypoints()">View All Waypoints</button>`;
+  }
+  
+  html += `<h4 style="font-size:12px;color:var(--accent);margin-bottom:6px;margin-top:12px;">Tracks (${state.tracks.length})</h4>`;
+  if (state.tracks.length === 0) {
+    html += `<p style="font-size:12px;color:var(--text2);">No saved tracks.</p>`;
+  } else {
+    state.tracks.forEach(t => {
+      html += `<div class="wp-item" onclick="flyToTrack('${t.id}')">
+        <div class="wp-icon" style="background:var(--accent)">📈</div>
+        <div class="wp-info">
+          <div class="wp-name">${t.name}</div>
+          <div class="wp-detail">${t.points.length} points</div>
+        </div>
+      </div>`;
+    });
+  }
+  
+  html += `</div>`;
+  return html;
+}
+
+function renderOfflinePanel() {
+  return `
+    <div class="panel-section">
+      <h3>Offline Maps</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">Download map tiles for offline use in the field.</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">Zoom to an area, then save it. Tap tiles that load while online — they'll be available offline.</p>
+      <button class="wp-btn" onclick="saveOfflineArea()" style="width:100%;">💾 Save Current View for Offline</button>
+      <div id="offline-areas" style="margin-top:8px;"></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text2);">
+        <strong>Tip:</strong> Set your zoom level first. Higher zoom = more tiles = more storage.
+      </div>
+    </div>
+  `;
+}
+
+// ============ LAYER MANAGEMENT ============
+function switchLayer(id) {
+  Object.keys(tileLayers).forEach(k => {
+    if (k === id) map.addLayer(tileLayers[k]);
+    else map.removeLayer(tileLayers[k]);
+  });
+  state.activeLayer = id;
+  localStorage.setItem('xscout_layer', id);
+  if (state.panelView === 'layers') openPanel('layers');
+  toast(`Layer: ${id.charAt(0).toUpperCase()+id.slice(1)}`);
+}
+
+// Overlay state
+let publicPrivateLayer = null;
+let huntingUnitsLayer = null;
+let weatherLayer = null;
+let parcelLayer = null;
+
+function togglePublicPrivate(on) {
+  if (on) {
+    // Simulated public/private land overlay — shows BLM/USFS public land areas
+    const bounds = map.getBounds();
+    const center = map.getCenter();
+    // Demo: create some randomized public land polygons
+    const colors = { public: '#00aa44', private: '#ff4444', state: '#ffaa00' };
+    publicPrivateLayer = L.featureGroup();
+    
+    // Add some demo areas around the current view
+    for (let i = 0; i < 5; i++) {
+      const latOff = (Math.random() - 0.5) * 0.5;
+      const lngOff = (Math.random() - 0.5) * 0.5;
+      const size = 0.02 + Math.random() * 0.05;
+      const type = i < 2 ? 'public' : i < 4 ? 'private' : 'state';
+      const rect = L.rectangle([
+        [center.lat + latOff - size, center.lng + lngOff - size],
+        [center.lat + latOff + size, center.lng + lngOff + size]
+      ], {
+        color: colors[type],
+        fillColor: colors[type],
+        fillOpacity: 0.15,
+        weight: 2,
+      }).bindPopup(`<b>${type.charAt(0).toUpperCase()+type.slice(1)} Land</b><br>Estimated boundary<br><small>For demo purposes only</small>`);
+      publicPrivateLayer.addLayer(rect);
+    }
+    
+    publicPrivateLayer.addTo(map);
+    toast('Public/Private land overlay (demo data)');
+  } else {
+    if (publicPrivateLayer) { map.removeLayer(publicPrivateLayer); publicPrivateLayer = null; }
+  }
+}
+
+function toggleHuntingUnits(on) {
+  if (on) {
+    huntingUnitsLayer = L.featureGroup();
+    const center = map.getCenter();
+    
+    // Demo hunting unit boundaries
+    const units = [
+      { num: '12A', latOff: -0.15, lngOff: -0.1, w: 0.12, h: 0.10 },
+      { num: '12B', latOff: -0.15, lngOff: 0.05, w: 0.10, h: 0.12 },
+      { num: '13', latOff: 0.05, lngOff: -0.08, w: 0.15, h: 0.10 },
+      { num: '14A', latOff: 0.08, lngOff: 0.08, w: 0.10, h: 0.14 },
+      { num: '15', latOff: -0.03, lngOff: -0.15, w: 0.08, h: 0.08 },
+    ];
+    
+    units.forEach(u => {
+      const poly = L.rectangle([
+        [center.lat + u.latOff, center.lng + u.lngOff],
+        [center.lat + u.latOff + u.h, center.lng + u.lngOff + u.w]
+      ], {
+        color: '#ff8800',
+        fillColor: '#ff8800',
+        fillOpacity: 0.05,
+        weight: 2,
+        dashArray: '5, 5',
+      }).bindPopup(`<b>Game Management Unit ${u.num}</b><br>Season dates vary<br><small>Demo data</small>`);
+      
+      // Unit number label
+      const label = L.marker([center.lat + u.latOff + u.h/2, center.lng + u.lngOff + u.w/2], {
+        icon: L.divIcon({
+          html: `<div style="font-size:16px;font-weight:700;color:#ff8800;text-shadow:0 0 4px #000;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;">${u.num}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          className: ''
+        })
+      });
+      
+      huntingUnitsLayer.addLayer(poly);
+      huntingUnitsLayer.addLayer(label);
+    });
+    
+    huntingUnitsLayer.addTo(map);
+    toast('Hunting units overlay (demo data)');
+  } else {
+    if (huntingUnitsLayer) { map.removeLayer(huntingUnitsLayer); huntingUnitsLayer = null; }
+  }
+}
+
+function toggleWeather(on) {
+  if (on) {
+    // OpenWeatherMap radar (free tile layer)
+    weatherLayer = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=YOUR_API_KEY', {
+      attribution: '© OpenWeatherMap',
+      opacity: 0.5,
+      maxZoom: 18,
+    });
+    // Note: needs real API key for production
+    // For now show a non-functional overlay as demo
+    weatherLayer.addTo(map);
+    toast('Weather overlay (needs API key for live data)');
+  } else {
+    if (weatherLayer) { map.removeLayer(weatherLayer); weatherLayer = null; }
+  }
+}
+
+function toggleParcels(on) {
+  if (on) {
+    parcelLayer = L.featureGroup();
+    const center = map.getCenter();
+    
+    // Demo parcel grid
+    for (let i = -2; i <= 2; i++) {
+      for (let j = -2; j <= 2; j++) {
+        const x = center.lng + i * 0.025;
+        const y = center.lat + j * 0.02;
+        const rect = L.rectangle([[y, x], [y+0.018, x+0.023]], {
+          color: '#00cc55',
+          fillColor: '#00cc55',
+          fillOpacity: 0.08,
+          weight: 1,
+        }).bindPopup(`<b>Parcel</b><br>Est. Acreage: ${(Math.random()*40+10).toFixed(1)} ac<br>Owner: Demo Data<br><small>For illustration only</small>`);
+        parcelLayer.addLayer(rect);
+      }
+    }
+    
+    parcelLayer.addTo(map);
+    toast('Parcel boundaries (demo grid)');
+  } else {
+    if (parcelLayer) { map.removeLayer(parcelLayer); parcelLayer = null; }
+  }
+}
+
+// ============ MEASUREMENT ============
+const measureDisplay = document.getElementById('measure-display');
+
+function toggleMeasure() {
+  state.measuring = !state.measuring;
+  if (state.measuring) {
+    measureDisplay.classList.add('show');
+    measureDisplay.textContent = 'Tap to add points. Double-tap to finish.';
+    map.on('click', onMeasureClick);
+    map.on('dblclick', finishMeasure);
+  } else {
+    measureDisplay.classList.remove('show');
+    measureDisplay.textContent = '';
+    map.off('click', onMeasureClick);
+    map.off('dblclick', finishMeasure);
+    clearMeasure();
+  }
+}
+
+function onMeasureClick(e) {
+  state.measurePoints.push([e.latlng.lat, e.latlng.lng]);
+  
+  // Add temporary marker
+  const marker = L.circleMarker([e.latlng.lat, e.latlng.lng], {
+    radius: 5, color: '#00cc55', fillColor: '#00ff66', fillOpacity: 1,
+  }).addTo(map);
+  
+  // Update line
+  if (state.measureLine) map.removeLayer(state.measureLine);
+  if (state.measurePoints.length >= 2) {
+    state.measureLine = L.polyline(state.measurePoints, { color: '#00cc55', weight: 2, dashArray: '5, 5' }).addTo(map);
+    
+    // Calculate distance
+    let totalDist = 0;
+    for (let i = 1; i < state.measurePoints.length; i++) {
+      totalDist += map.distance(state.measurePoints[i-1], state.measurePoints[i]);
+    }
+    
+    if (totalDist >= 1000) {
+      measureDisplay.textContent = `📏 ${(totalDist/1000).toFixed(2)} km`;
+    } else {
+      measureDisplay.textContent = `📏 ${totalDist.toFixed(0)} m`;
+    }
+  }
+}
+
+function finishMeasure() {
+  if (state.measurePoints.length >= 3) {
+    // Close polygon? Optional
+    toast('Measurement done');
+  }
+  state.measuring = false;
+  toggleMeasure();
+}
+
+function clearMeasure() {
+  state.measurePoints = [];
+  if (state.measureLine) { map.removeLayer(state.measureLine); state.measureLine = null; }
+}
+
+// ============ QUICK WAYPOINT ============
+function quickWaypoint(catId) {
+  const center = map.getCenter();
+  const wp = {
+    id: Date.now().toString(36),
+    name: CATEGORIES.find(c => c.id === catId)?.label || 'Waypoint',
+    lat: center.lat,
+    lng: center.lng,
+    category: catId,
+    notes: '',
+    altitude: null,
+    createdAt: new Date().toISOString(),
+  };
+  state.waypoints.unshift(wp);
+  saveWaypoints();
+  addWaypointMarker(wp);
+  toast(`Dropped: ${wp.name}`);
+  closePanel();
+}
+
+function flyToWaypoint(id) {
+  const wp = state.waypoints.find(w => w.id === id);
+  if (wp) {
+    map.setView([wp.lat, wp.lng], 16, { animate: true });
+    closePanel();
+  }
+}
+
+function flyToTrack(id) {
+  const track = state.tracks.find(t => t.id === id);
+  if (track && track.points.length > 0) {
+    const bounds = L.latLngBounds(track.points);
+    map.fitBounds(bounds, { padding: [50, 50] });
+    closePanel();
+  }
+}
+
+// ============ OFFLINE ============
+function saveOfflineArea() {
+  const bounds = map.getBounds();
+  const zoom = map.getZoom();
+  const area = {
+    id: Date.now().toString(36),
+    name: `Area ${map.getCenter().lat.toFixed(2)}, ${map.getCenter().lng.toFixed(2)}`,
+    bounds: [[bounds.getSouth(), bounds.getWest()], [bounds.getNorth(), bounds.getEast()]],
+    zoom,
+    savedAt: new Date().toISOString(),
+  };
+  
+  state.offlineAreas.push(area);
+  localStorage.setItem('xscout_offline', JSON.stringify(state.offlineAreas));
+  
+  // Draw area rectangle on map
+  const rect = L.rectangle(area.bounds, {
+    color: '#ffaa00',
+    weight: 2,
+    dashArray: '8, 8',
+    fillOpacity: 0.05,
+  }).bindPopup(`<b>Offline Area</b><br>Zoom ${zoom}<br>Tiles cached while browsing`);
+  rect.addTo(map);
+  
+  toast('Offline area saved — tiles cache as you browse');
+  closePanel();
+}
+
+// ============ OFFLINE DETECTION ============
+const offlineBadge = document.getElementById('offline-badge');
+window.addEventListener('online', () => offlineBadge.classList.remove('show'));
+window.addEventListener('offline', () => offlineBadge.classList.add('show'));
+
+// ============ TOAST ============
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============ MAP EVENT TRACKING ============
+map.on('moveend', () => {
+  const center = map.getCenter();
+  if (document.getElementById('info-center')) {
+    document.getElementById('info-center').textContent = `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+  }
+});
+
+map.on('zoomend', () => {
+  if (document.getElementById('info-zoom')) {
+    document.getElementById('info-zoom').textContent = map.getZoom();
+  }
+});
+
+// ============ SERVICE WORKER REGISTRATION ============
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.error('SW registration failed:', e));
+}
+
+// ============ LOAD SAVED DATA ============
+loadWaypoints();
+loadTracks();
+
+// Restore offline areas
+const savedOffline = JSON.parse(localStorage.getItem('xscout_offline') || '[]');
+savedOffline.forEach(area => {
+  if (area.bounds && area.bounds.length === 2) {
+    L.rectangle(area.bounds, {
+      color: '#ffaa00', weight: 2, dashArray: '8, 8', fillOpacity: 0.05,
+    }).addTo(map);
+  }
+});
+
+// Check online status
+if (!navigator.onLine) offlineBadge.classList.add('show');
+
+console.log('Xscout loaded. Happy hunting! 🦌');
+</script>
+</body>
+</html>
